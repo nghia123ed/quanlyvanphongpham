@@ -279,12 +279,12 @@ def nhan_vien():
         edit_u = request.form.get('user_edit')
         
         if edit_u:
-            cursor.execute('UPDATE NguoiDung SET MatKhau=?, HoTen=?, VaiTro=? WHERE TenDangNhap=?', (p, t, q, edit_u))
+            cursor.execute('UPDATE NguoiDung SET MatKhau=?, NguoiBan=?, VaiTro=? WHERE TenDangNhap=?', (p, t, q, edit_u))
         else:
             cursor.execute('INSERT INTO NguoiDung VALUES (?,?,?,?)', (u, p, t, q))
         return redirect(url_for('nhan_vien'))
         
-    cursor.execute('SELECT TenDangNhap, MatKhau, HoTen, VaiTro FROM NguoiDung')
+    cursor.execute('SELECT TenDangNhap, MatKhau, NguoiBan, VaiTro FROM NguoiDung')
     list_nv = cursor.fetchall()
     return render_template('nhan_vien.html', nhan_vien=list_nv, ten_nv=session['ten_nv'], quyen=session['quyen'])
 
