@@ -1,0 +1,29 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Thống kê</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>{{ ten_nv }}</h2><p>{{ quyen }}</p><hr>
+        <a href="/pos">Bán hàng</a>
+        <a href="/kho-hang">Kho hàng</a>
+        <a href="/nhan-vien">Nhân viên</a>
+        <a href="/lich-su">Lịch sử</a>
+        <a href="/thong-ke" class="active">Thống kê</a>
+        <a href="/logout" style="color:#ff4d4d">Đăng xuất</a>
+    </div>
+    <div class="content">
+        <h2>BÁO CÁO DOANH THU</h2>
+        <canvas id="myChart" style="background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px #ccc"></canvas>
+    </div>
+    <script>
+        new Chart(document.getElementById('myChart'), {
+            type: 'bar',
+            data: { labels: {{labels|safe}}, datasets: [{ label: 'Doanh thu (VNĐ)', data: {{values|safe}}, backgroundColor: '#28a745' }] }
+        });
+    </script>
+</body>
+</html>

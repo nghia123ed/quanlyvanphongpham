@@ -1,0 +1,62 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Lịch sử</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="sidebar">
+        <h2>{{ ten_nv }}</h2><p>{{ quyen }}</p><hr>
+        <a href="/pos">Bán hàng</a>
+        <a href="/kho-hang">Kho hàng</a>
+        <a href="/nhan-vien">Nhân viên</a>
+        <a href="/lich-su" class="active">Lịch sử</a>
+        <a href="/thong-ke">Thống kê</a>
+        <a href="/logout" style="color:#ff4d4d">Đăng xuất</a>
+    </div>
+    <div class="content">
+        <h2>LỊCH SỬ HÓA ĐƠN</h2>
+        <table>
+            <tr style="background:#007bff; color:white"><th>Mã HD</th><th>Người bán</th><th>Ngày</th><th>Tổng tiền</th><th>Thao tác</th></tr>
+            {% for h in hoa_don %}
+            <tr data-id="{{h[0]}}" data-created="{{h[2]}}">
+                <td>{{h[0]}}</td>
+                <td>{{h[1]}}</td>
+                <td>{{h[2]}}</td>
+                <td>{{h[3]}}đ</td>
+                <td><button onclick="showDetail(this)" style="background:#17a2b8; color:white">Xem chi tiết</button></td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div id="detail-box" style="margin-top:30px; display:none; background:white; padding:20px; border:2px solid #007bff; border-radius:10px">
+            <h3 id="detail-title"></h3>
+            <table id="detail-table">
+                <thead><tr style="background:#eee"><th>Tên SP</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+                <tbody id="detail-body"></tbody>
+            </table>
+            <h3 id="detail-total" style="text-align:right; color:red"></h3>
+        </div>
+    </div>
+    <script>
+        function showDetail(btn) {
+            // btn is the clicked button inside the row
+            var tr = btn.closest('tr');
+            var ma = tr.dataset.id;
+            var created = tr.dataset.created || '';
+            fetch('/api/chi-tiet/' + ma).then(res => res.json()).then(data => {
+                document.getElementById('detail-box').style.display = 'block';
+                document.getElementById('detail-title').innerText = 'Chi tiết hóa đơn: ' + ma + (created? (' — ' + created) : '');
+                let h = '', total = 0;
+                data.forEach(item => {
+                    h += `<tr><td>${item.name}</td><td>${item.qty}</td><td>${item.price}đ</td><td>${item.qty * item.price}đ</td></tr>`;
+                    total += item.qty * item.price;
+                });
+                document.getElementById('detail-body').innerHTML = h;
+                document.getElementById('detail-total').innerText = 'Tổng cộng: ' + total + 'đ';
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+        }
+    </script>
+</body>
+</html>

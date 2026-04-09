@@ -1,0 +1,24 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Thống kê doanh thu{% endblock %}
+
+{% block extra_css %}
+<style>
+  .main-content{padding:20px}
+  #myChart{background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px #ccc}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container main-content">
+    <h2 class="mb-3">Báo cáo doanh thu</h2>
+    <canvas id="myChart"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        new Chart(document.getElementById('myChart'), {
+            type: 'bar',
+            data: { labels: {{labels|safe}}, datasets: [{ label: 'Doanh thu (VNĐ)', data: {{values|safe}}, backgroundColor: '#28a745' }] }
+        });
+    </script>
+</div>
+{% endblock %}

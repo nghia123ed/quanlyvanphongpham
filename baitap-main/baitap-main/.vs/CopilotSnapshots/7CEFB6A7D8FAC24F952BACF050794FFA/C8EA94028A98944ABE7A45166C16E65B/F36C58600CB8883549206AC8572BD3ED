@@ -1,0 +1,272 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Kho hàng{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Local improvements for kho_hang layout (content only) */
+    .main-content{font-family:Segoe UI, Roboto, Arial; background:#f5f7fb}
+    /* KiotViet-like layout: left filters, main table */
+    .kv-wrap{display:flex;gap:18px}
+    .kv-left{width:260px;background:#fff;border-radius:8px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .kv-left h5{margin:0 0 8px;font-size:14px}
+    .kv-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:12px}
+    .kv-table-wrap{flex:1}
+    .kv-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .col-toggle{position:relative}
+    .col-dropdown{position:absolute;right:0;top:36px;background:#fff;border:1px solid #e6eefb;padding:10px;border-radius:6px;box-shadow:0 6px 20px rgba(2,6,23,0.08);display:none;min-width:200px}
+    .col-dropdown label{display:flex;align-items:center;gap:8px;padding:4px 0}
+    .kv-table thead th:first-child, .kv-table tbody td:first-child{width:40px}
+    .card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,0.06)}
+    .form-row{display:flex;gap:12px;flex-wrap:wrap}
+    .form-row input{flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:6px}
+    .btn{display:inline-block;padding:8px 14px;border-radius:6px;border:none;cursor:pointer}
+    .btn-save{background:#10b981;color:#fff}
+    .btn-edit{background:#f59e0b;color:#fff}
+    .btn-delete{background:#ef4444;color:#fff}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #eef2f7}
+    th{background:#0f172a;color:#fff}
+    tr:hover td{background:#fbfdff}
+    .thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;border:1px solid #e6eefb}
+    .low-stock td{background:linear-gradient(90deg,rgba(253,242,233,0.4),transparent)}
+    @media(max-width:800px){.main-content{padding:12px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container main-content">
+    <div class="kv-wrap">
+        <aside class="kv-left">
+            <h5>Bộ lọc</h5>
+            <div style="margin-bottom:10px"><label class="small">Nhóm khách hàng</label><select class="form-select"><option>Tất cả</option></select></div>
+            <div style="margin-bottom:10px"><label class="small">Ngày tạo</label><input class="form-control" type="date"></div>
+            <div style="margin-bottom:10px"><label class="small">Số lượng &lt;=</label><input class="form-control" type="number" placeholder="Tồn ít hơn"></div>
+            <div style="margin-top:12px"><button class="btn btn-outline-primary w-100" onclick="return false">Áp dụng</button></div>
+        </aside>
+
+        <div class="kv-table-wrap">
+            <div class="kv-topbar">
+                <h2 class="mb-0">Quản lý kho</h2>
+                <div class="kv-actions">
+                    <div class="col-toggle">
+                        <button class="btn btn-sm btn-light" id="colToggleBtn">Cột ▾</button>
+                        <div id="colDropdown" class="col-dropdown" aria-hidden="true">
+                            <label><input type="checkbox" data-col="id" checked> ID</label>
+                            <label><input type="checkbox" data-col="name" checked> Tên sản phẩm</label>
+                            <label><input type="checkbox" data-col="price" checked> Giá</label>
+                            <label><input type="checkbox" data-col="stock" checked> Tồn kho</label>
+                        </div>
+                    </div>
+                    <button class="btn btn-success btn-sm">Thêm sản phẩm</button>
+                </div>
+            </div>
+
+            {% if quyen == 'Admin' %}
+            <div class="card mb-3">
+                <form method="POST" id="productForm">
+            <input type="hidden" name="ma_sp" id="m">
+            <div class="form-row" style="align-items:center">
+                <input name="ten_sp" id="t" placeholder="Tên sản phẩm" required>
+                <input type="number" name="gia_ban" id="g" placeholder="Giá bán (VNĐ)" required>
+                <input type="number" name="so_luong" id="s" placeholder="Số lượng tồn" required>
+                <input name="hinh" id="h" placeholder="URL hình (tùy chọn)">
+                <button type="submit" class="btn btn-save">Lưu sản phẩm</button>
+                <button type="button" class="btn" id="clearBtn">Xóa form</button>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:12px">
+                <img id="previewImg" src="" alt="Preview" style="width:64px;height:64px;border-radius:8px;object-fit:cover;display:none;border:1px solid #e5e7eb">
+                <small style="color:#6b7280">Nhập URL hình để xem trước. Hỗ trợ ảnh công khai (HTTP/HTTPS).</small>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input id="searchBox" placeholder="Tìm theo tên hoặc ID" style="padding:8px;border:1px solid #e5e7eb;border-radius:6px;width:220px">
+                        <label style="display:flex;align-items:center;gap:6px;color:#374151;font-size:14px"><input type="checkbox" id="lowStockOnly"> Chỉ hiện thiếu hàng (&lt;5)</label>
+                    </div>
+                    <div style="color:#6b7280;font-size:13px">Tổng: <span id="totalCount">{{ san_pham|length }}</span> sản phẩm</div>
+                </div>
+                <table class="kv-table">
+            <thead>
+                <tr>
+                            <th style="width:40px"><input type="checkbox" id="selectAll"></th>
+                            <th style="width:80px" data-sort="int" data-col="id">ID <span class="sort-indicator">▾</span></th>
+                            <th data-sort="text" data-col="name">Tên sản phẩm <span class="sort-indicator">▾</span></th>
+                            <th style="width:140px" data-sort="int" data-col="price">Giá <span class="sort-indicator">▾</span></th>
+                            <th style="width:120px" data-sort="int" data-col="stock">Tồn kho <span class="sort-indicator">▾</span></th>
+                    {% if quyen == 'Admin' %}
+                    <th style="width:180px">Thao tác</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in san_pham %}
+                {% set img = s[4] if s|length > 4 else None %}
+                <tr data-id="{{s[0]}}" data-name="{{s[1]|e}}" data-price="{{s[2]}}" data-stock="{{s[3]}}" data-image="{{ img or '' }}" class="{% if s[3] < 5 %}low-stock{% endif %}">
+                    <td>{{s[0]}}</td>
+                    <td style="display:flex;align-items:center;gap:12px">
+                        {% if img %}
+                            <img src="{{ img }}" alt="{{ s[1] }}" class="thumb" onerror="this.style.display='none'">
+                        {% else %}
+                            <div style="width:44px;height:44px;border-radius:8px;background:#eef2ff;display:inline-block"></div>
+                        {% endif %}
+                        <div>
+                            <div>{{s[1]}}</div>
+                            {% if s[3] < 5 %}
+                                <span style="background:#fff1f2;color:#b91c1c;padding:3px 8px;border-radius:999px;margin-top:6px;display:inline-block;font-size:12px">Thiếu</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>{{s[2]}} đ</td>
+                    <td>{{s[3]}}</td>
+                    {% if quyen == 'Admin' %}
+                    <td>
+                        <button class="btn btn-edit" type="button" onclick="editRow(this)">Sửa</button>
+                        <button class="btn btn-delete" type="button" data-delete-url="/xoa-sp/{{s[0]}}" onclick="confirmDelete(this)">Xóa</button>
+                    </td>
+                    {% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        // Use data- attributes to safely populate the edit form
+        function editRow(btn){
+            var tr = btn.closest('tr');
+            if(!tr) return;
+            document.getElementById('m').value = tr.dataset.id || '';
+            document.getElementById('t').value = tr.dataset.name || '';
+            document.getElementById('g').value = tr.dataset.price || '';
+            document.getElementById('s').value = tr.dataset.stock || '';
+            var imageUrl = tr.dataset.image || '';
+            document.getElementById('h').value = imageUrl;
+            var p = document.getElementById('previewImg');
+            if(imageUrl){ p.src = imageUrl; p.style.display='inline-block'; } else { p.style.display='none'; }
+            window.scrollTo({top:0,behavior:'smooth'});
+        }
+
+        document.getElementById('clearBtn')?.addEventListener('click', function(){
+            document.getElementById('m').value=''; document.getElementById('t').value=''; document.getElementById('g').value=''; document.getElementById('s').value='';
+        });
+
+        // preview image when URL changes
+        var imgInput = document.getElementById('h');
+        var preview = document.getElementById('previewImg');
+        if(imgInput){
+            imgInput.addEventListener('input', function(){
+                var u = imgInput.value.trim();
+                if(u){ preview.src = u; preview.style.display='inline-block'; }
+                else { preview.style.display='none'; }
+            });
+        }
+
+        // Search and filter
+        var searchBox = document.getElementById('searchBox');
+        var lowOnly = document.getElementById('lowStockOnly');
+        var tbody = document.querySelector('table tbody');
+        var rows = tbody? Array.from(tbody.querySelectorAll('tr')) : [];
+        function refreshFilter(){
+            var q = (searchBox.value||'').toLowerCase().trim();
+            var low = lowOnly.checked;
+            var visible = 0;
+            rows.forEach(function(r){
+                var id = (r.dataset.id||'');
+                var name = (r.dataset.name||'').toLowerCase();
+                var stock = parseInt(r.dataset.stock||'0',10);
+                var match = (!q) || id.includes(q) || name.indexOf(q) !== -1;
+                var passLow = !low || stock < 5;
+                if(match && passLow){ r.style.display='table-row'; visible++; } else { r.style.display='none'; }
+            });
+            var tc = document.getElementById('totalCount'); if(tc) tc.textContent = visible;
+        }
+        if(searchBox) searchBox.addEventListener('input', refreshFilter);
+        if(lowOnly) lowOnly.addEventListener('change', refreshFilter);
+
+        // Sorting
+        var headers = document.querySelectorAll('thead th[data-sort]');
+        headers.forEach(function(th, idx){
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', function(){
+                var type = th.dataset.sort;
+                var asc = !th.classList.contains('asc');
+                headers.forEach(function(h){ h.classList.remove('asc'); h.classList.remove('desc'); });
+                th.classList.add(asc? 'asc':'desc');
+                rows.sort(function(a,b){
+                    var ak = a.children[idx].textContent.trim();
+                    var bk = b.children[idx].textContent.trim();
+                    if(type==='int'){
+                        ak = parseInt(ak.replace(/[^0-9-]/g,''))||0;
+                        bk = parseInt(bk.replace(/[^0-9-]/g,''))||0;
+                        return asc? ak-bk : bk-ak;
+                    }
+                    ak = ak.toLowerCase(); bk = bk.toLowerCase();
+                    return asc? (ak>bk?1:-1) : (bk>ak?1:-1);
+                });
+                rows.forEach(function(r){ if(tbody) tbody.appendChild(r); });
+            });
+        });
+
+        // Delete modal
+        function confirmDelete(btn){
+            var url = btn.dataset.deleteUrl;
+            var modal = document.getElementById('deleteModal');
+            if(modal){
+                modal.querySelector('.modal-body').textContent = 'Bạn chắc chắn muốn xóa sản phẩm này? Hành động không thể hoàn tác.';
+                modal.querySelector('.confirm-btn').dataset.url = url;
+                modal.style.display = 'flex';
+            }
+        }
+
+        // modal close and confirm
+        document.addEventListener('click', function(e){
+            if(e.target.matches('.modal .close') || e.target.matches('.modal')){
+                document.getElementById('deleteModal').style.display='none';
+            }
+            if(e.target.matches('.confirm-btn')){
+                var u = e.target.dataset.url;
+                if(u) window.location = u;
+            }
+        });
+
+        // init count
+        refreshFilter();
+
+        // column toggle dropdown
+        document.getElementById('colToggleBtn')?.addEventListener('click', function(e){
+            var d = document.getElementById('colDropdown'); if(!d) return; d.style.display = d.style.display==='block' ? 'none' : 'block';
+        });
+        document.querySelectorAll('#colDropdown input[type=checkbox]').forEach(function(cb){
+            cb.addEventListener('change', function(){
+                var col = this.dataset.col; var visible = this.checked;
+                document.querySelectorAll('[data-col="'+col+'"]').forEach(function(el){ if(el) el.style.display = visible? '' : 'none'; });
+            });
+        });
+    });
+</script>
+<!-- Delete confirmation modal -->
+<div id="deleteModal" class="modal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(2,6,23,0.45)">
+    <div style="background:#fff;padding:18px;border-radius:10px;max-width:480px;width:90%" class="modal-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <strong>Xác nhận xóa</strong>
+            <button class="close" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button>
+        </div>
+        <div class="modal-body" style="color:#374151;margin-bottom:16px">...</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" style="background:#e5e7eb" onclick="document.getElementById('deleteModal').style.display='none'">Hủy</button>
+            <button class="btn confirm-btn" style="background:#ef4444;color:#fff" data-url="">Xóa</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

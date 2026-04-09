@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Kho hàng</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="sidebar">
+        <h2>{{ ten_nv }}</h2><p>{{ quyen }}</p><hr>
+        <a href="/pos">Bán hàng</a>
+        <a href="/kho-hang" class="active">Kho hàng</a>
+        <a href="/nhan-vien">Nhân viên</a>
+        <a href="/lich-su">Lịch sử</a>
+        <a href="/thong-ke">Thống kê</a>
+        <a href="/logout" style="color:#ff4d4d">Đăng xuất</a>
+    </div>
+    <div class="content">
+        <h2>QUẢN LÝ KHO</h2>
+        {% if quyen == 'Admin' %}
+        <div style="background:#eee; padding:20px; border-radius:10px; margin-bottom:20px">
+            <form method="POST">
+                <input type="hidden" name="ma_sp" id="m">
+                <input name="ten_sp" id="t" placeholder="Tên sản phẩm" required>
+                <input type="number" name="gia_ban" id="g" placeholder="Giá bán" required>
+                <input type="number" name="so_luong" id="s" placeholder="Số lượng tồn" required>
+                <button type="submit" style="background:#28a745; color:white; padding:8px 20px">LƯU SẢN PHẨM</button>
+            </form>
+        </div>
+        {% endif %}
+        <table>
+            <tr style="background:#333; color:white">
+                <th>ID</th>
+                <th>Tên sản phẩm</th>
+                <th>Giá</th>
+                <th>Tồn kho</th>
+                {% if quyen == 'Admin' %}
+                <th>Thao tác</th>{% endif %}
+            </tr>
+            {% for s in san_pham %}
+            <tr>
+                <td>{{s[0]}}</td>
+                <td>{{s[1]}}</td>
+                <td>{{s[2]}}đ</td>
+                <td>{{s[3]}}</td>
+                {% if quyen == 'Admin' %}
+                <td>
+                    <button onclick="edit({{s[0]}},'{{s[1]}}',{{s[2]}},{{s[3]}})" style="background:#ffc107">Sửa</button>
+                    <a href="/xoa-sp/{{s[0]}}" onclick="return confirm('Xóa?')"><button style="background:red; color:white">Xóa</button></a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <script>
+        function edit(id, t, g, s) { document.getElementById('m').value = id; document.getElementById('t').value = t; document.getElementById('g').value = g; document.getElementById('s').value = s; }
+    </script>
+</body>
+</html>

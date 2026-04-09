@@ -1,0 +1,177 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Bán hàng{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* POS specific small styles moved here to keep layout consistent */
+  body{font-family:Segoe UI, Roboto, Arial;background:#f5f7fb;margin:0}
+  .main-content{padding:24px}
+  .layout{display:flex;gap:20px}
+  .products{flex:2}
+  .cart-panel{width:360px;background:#fff;padding:18px;border-radius:10px;box-shadow:0 4px 14px rgba(2,6,23,0.06)}
+  .search{display:flex;gap:12px;margin-bottom:12px}
+  .search input{flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .product-card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 8px rgba(2,6,23,0.04);display:flex;gap:12px;align-items:center}
+  .thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;border:1px solid #eef2f7}
+  .price{color:#ef4444;font-weight:600}
+  .small{font-size:13px;color:#6b7280}
+  @media(max-width:900px){.cart-panel{width:100%}.main-content{margin-left:0;padding:12px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content">
+  <h1 class="h3 mb-3">Bán hàng</h1>
+        <div class="layout">
+            <div class="products">
+                <div class="search">
+                    <input id="search" placeholder="Tìm sản phẩm theo tên...">
+                    <select id="sort"><option value="">Sắp xếp</option><option value="price-asc">Giá thấp → cao</option><option value="price-desc">Giá cao → thấp</option></select>
+                </div>
+
+                <div class="grid" id="productGrid">
+                    {% for s in san_pham %}
+                        {% set img = s[4] if s|length > 4 else None %}
+                        <div class="card" data-id="{{s[0]}}" data-name="{{s[1]|e}}" data-price="{{s[2]}}" data-stock="{{s[3]}}" data-image="{{ img or '' }}">
+                            {% if img %}
+                                <img src="{{ img }}" class="thumb" onerror="this.style.display='none'">
+                            {% else %}
+                                <div class="thumb" style="background:#eef2ff"></div>
+                            {% endif %}
+                            <div class="meta">
+                                <div style="display:flex;justify-content:space-between;align-items:center">
+                                    <div style="font-weight:600">{{s[1]}}</div>
+                                    <div class="price">{{s[2]}}đ</div>
+                                </div>
+                                <div class="small">Tồn: <span class="stock">{{s[3]}}</span></div>
+                                <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+                                    <div class="qty">
+                                        <button type="button" class="dec">-</button>
+                                        <input type="number" class="qty-input" value="1" min="1" style="width:56px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;text-align:center">
+                                        <button type="button" class="inc">+</button>
+                                    </div>
+                                    <button class="btn-add">Thêm</button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="cart-panel">
+                <h3>GIỎ HÀNG</h3>
+                <div id="cartList" style="min-height:220px"></div>
+                <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+                    <div class="small">Tổng mục: <span id="itemCount">0</span></div>
+                    <div style="font-weight:700;color:#ef4444" id="subtotal">0đ</div>
+                </div>
+                <div id="invoiceInfo" style="display:none;margin:12px 0;padding:10px;border-radius:8px;background:#eef2ff;color:#0b63d6">
+                    Hóa đơn: <strong id="invId"></strong>
+                    <div style="font-size:13px;color:#374151;margin-top:6px">Thời gian: <span id="invTime"></span></div>
+                </div>
+                <button id="payBtn" onclick="pay()" style="width:100%; padding:14px; background:#28a745; color:white; font-weight:bold; border:none; cursor:pointer;margin-top:12px">THANH TOÁN</button>
+            </div>
+        </div>
+
+        <div id="invoiceModal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)">
+            <div style="background:#fff;padding:18px;border-radius:8px;max-width:700px;width:96%;box-shadow:0 8px 24px rgba(2,6,23,0.4)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <strong style="font-size:18px">Hóa đơn</strong>
+                    <button onclick="closeInvoiceModal()" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button>
+                </div>
+                <div id="invHeader" style="margin-bottom:12px;color:#374151"></div>
+                <table id="invTable" style="width:100%;border-collapse:collapse;margin-bottom:12px">
+                    <thead><tr style="background:#f3f4f6"><th style="text-align:left;padding:8px">Sản phẩm</th><th style="padding:8px">Số lượng</th><th style="padding:8px">Đơn giá</th><th style="padding:8px">Thành tiền</th></tr></thead>
+                    <tbody id="invBody"></tbody>
+                </table>
+                <div style="text-align:right;margin-bottom:12px"><strong id="invTotal" style="color:#ef4444"></strong></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                    <button onclick="closeInvoiceModal()" class="btn" style="background:#e5e7eb">Đóng</button>
+                    <button onclick="openInHistory()" class="btn" style="background:#6b7280;color:#fff">Mở trong Lịch sử</button>
+                    <button onclick="printInvoice()" class="btn" style="background:#0b63d6;color:#fff">In hóa đơn</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var cart = [];
+
+        function findCartItem(id){ return cart.find(c=>c.id==id); }
+
+        function renderCart(){
+            var list = document.getElementById('cartList');
+            list.innerHTML = '';
+            var total = 0, count = 0;
+            if(cart.length===0){ list.innerHTML = '<div class="cart-empty">Giỏ hàng trống</div>'; }
+            cart.forEach(function(i, idx){
+                total += i.price * i.quantity; count += i.quantity;
+                var div = document.createElement('div'); div.className='cart-item';
+                div.innerHTML = `<div style="flex:1"><div style="font-weight:600">${i.name}</div><div class='small'>${i.price}đ</div></div><div style='display:flex;gap:8px;align-items:center'><input type='number' value='${i.quantity}' min='1' style='width:64px;padding:6px;border:1px solid #e5e7eb;border-radius:6px;text-align:center' data-idx='${idx}' class='cart-qty'><button data-idx='${idx}' class='cart-remove' style='background:#ef4444;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer'>X</button></div>`;
+                list.appendChild(div);
+            });
+            document.getElementById('subtotal').innerText = total + 'đ';
+            document.getElementById('itemCount').innerText = count;
+
+            Array.from(document.querySelectorAll('.cart-remove')).forEach(function(b){ b.addEventListener('click', function(){ cart.splice(+this.dataset.idx,1); renderCart(); }); });
+            Array.from(document.querySelectorAll('.cart-qty')).forEach(function(inp){ inp.addEventListener('change', function(){ var v = parseInt(this.value)||1; var idx = +this.dataset.idx; cart[idx].quantity = v; renderCart(); }); });
+        }
+
+        function setupProducts(){
+            var cards = document.querySelectorAll('.card');
+            cards.forEach(function(c){
+                var dec = c.querySelector('.dec'), inc = c.querySelector('.inc'), qin = c.querySelector('.qty-input'), add = c.querySelector('.btn-add');
+                var stock = parseInt(c.dataset.stock||'0',10);
+                if(stock<=0){ add.disabled=true; add.innerText='Hết hàng'; add.style.opacity=0.6 }
+                dec.addEventListener('click', function(){ qin.value = Math.max(1, parseInt(qin.value||'1')-1); });
+                inc.addEventListener('click', function(){ qin.value = Math.min(stock || 9999, parseInt(qin.value||'1')+1); });
+                add.addEventListener('click', function(){
+                    var id = c.dataset.id, name = c.dataset.name, price = parseInt(c.dataset.price||'0',10), qty = parseInt(qin.value||'1');
+                    var item = findCartItem(id);
+                    if(item) item.quantity += qty; else cart.push({ id:id, name:name, price:price, quantity:qty });
+                    renderCart();
+                });
+            });
+        }
+
+        document.getElementById('search').addEventListener('input', function(){ var q=this.value.toLowerCase(); document.querySelectorAll('.card').forEach(function(c){ var name=c.dataset.name.toLowerCase(); c.style.display = name.indexOf(q)!==-1? 'flex':'none'; }); });
+        document.getElementById('sort').addEventListener('change', function(){ var v=this.value; var grid=document.getElementById('productGrid'); var cards=Array.from(grid.children); if(!v){ cards.forEach(c=>grid.appendChild(c)); return; } cards.sort(function(a,b){ var pa = parseInt(a.dataset.price||0,10); var pb = parseInt(b.dataset.price||0,10); return v==='price-asc'? pa-pb: pb-pa; }); cards.forEach(c=>grid.appendChild(c)); });
+
+        function pay(){
+            if(cart.length==0) return alert('Giỏ hàng trống');
+            var payBtn = document.getElementById('payBtn'); payBtn.disabled=true;
+            fetch('/api/thanh-toan', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ cart: cart }) })
+                .then(function(res){ return res.json().catch(function(){ return { status:'error', message:'Invalid response' }; }); })
+                .then(function(data){ payBtn.disabled=false; if(data && data.status==='success'){ showInvoiceModal(data.invoice||'', data.created||'', cart); cart=[]; renderCart(); alert('Thanh toán thành công! Hóa đơn: '+(data.invoice||'')); } else { alert('Thanh toán thất bại: ' + (data && data.message? data.message:'Lỗi máy chủ')); } })
+                .catch(function(){ payBtn.disabled=false; alert('Lỗi khi thanh toán. Vui lòng thử lại.'); });
+        }
+
+        function showInvoiceModal(invId, invTime, items){
+            document.getElementById('invoiceInfo').style.display = 'block';
+            document.getElementById('invId').innerText = invId;
+            document.getElementById('invTime').innerText = invTime;
+            var invHeader = document.getElementById('invHeader');
+            invHeader.innerHTML = `Mã hóa đơn: <strong>${invId}</strong> &nbsp; &nbsp; Người bán: <strong>{{ ten_nv }}</strong> &nbsp; &nbsp; Thời gian: <strong>${invTime}</strong>`;
+            var body = '';
+            var total = 0;
+            items.forEach(function(i){ body += `<tr><td style="padding:8px">${i.name}</td><td style="padding:8px;text-align:center">${i.quantity}</td><td style="padding:8px;text-align:right">${i.price}đ</td><td style="padding:8px;text-align:right">${i.price * i.quantity}đ</td></tr>`; total += i.price * i.quantity; });
+            document.getElementById('invBody').innerHTML = body;
+            document.getElementById('invTotal').innerText = 'Tổng: ' + total + 'đ';
+            document.getElementById('invoiceModal').style.display = 'flex';
+        }
+
+        function closeInvoiceModal(){ document.getElementById('invoiceModal').style.display='none'; }
+        function printInvoice(){ var header=document.getElementById('invHeader').innerHTML; var table=document.getElementById('invTable').outerHTML; var total=document.getElementById('invTotal').innerText; var w=window.open('','_blank'); var html=`<html><head><title>Hóa đơn</title><style>body{font-family:Arial,Helvetica,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left}h3{margin-top:0}</style></head><body>`; html+=`<h3>Hóa đơn ${document.getElementById('invId').innerText}</h3>`; html+=`<div>${header}</div><br>`; html+=table; html+=`<div style="text-align:right;margin-top:12px"><strong>${total}</strong></div>`; html+=`</body></html>`; w.document.write(html); w.document.close(); w.focus(); setTimeout(function(){ w.print(); },300); }
+        function openInHistory(){ var id=document.getElementById('invId').innerText; if(id) window.location.href = '/lich-su?invoice=' + encodeURIComponent(id); }
+
+        document.addEventListener('DOMContentLoaded', function(){ setupProducts(); renderCart(); });
+    </script>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        // existing runtime scripts are already included above; keep extra page-level hooks if needed
+    </script>
+{% endblock %}

@@ -1,0 +1,107 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Quản lý nhân viên{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Make sidebar and layout match Bán hàng page (dark fixed sidebar) */
+  .sidebar{width:220px; background:#1f2937; color:#fff; padding:20px; position:fixed; top:56px; left:0; bottom:0}
+  .sidebar a{display:block;color:#cbd5e1;padding:8px 6px;text-decoration:none;border-radius:6px;margin:6px 0}
+  .sidebar a.active, .sidebar a:hover{background:#3b82f6;color:#fff}
+  main.col-md-10{margin-left:240px}
+  @media(max-width:768px){ .sidebar{display:none} main.col-md-10{margin-left:0} }
+  /* Card/table refinements to resemble POS theme */
+  .card{border-radius:10px; box-shadow:0 2px 8px rgba(15,23,42,0.06)}
+  .table thead.table-dark th{background:#0f172a}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-0">Quản lý nhân viên</h1>
+    {% if quyen == 'Admin' %}<small class="text-muted">Quyền: <span class="badge bg-primary">Quản trị</span></small>{% endif %}
+  </div>
+  <div>
+    {% if quyen == 'Admin' %}<button class="btn btn-outline-secondary" id="newBtn" onclick="clearForm()">Tạo mới</button>{% endif %}
+  </div>
+</div>
+
+{% if quyen == 'Admin' %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="POST" class="row g-2 align-items-center" id="nvForm">
+        <input type="hidden" name="user_edit" id="ue">
+        <div class="col-md-3"><input class="form-control" name="u" id="iu" placeholder="Tài khoản" required></div>
+        <div class="col-md-3"><input class="form-control" name="p" id="ip" placeholder="Mật khẩu" required></div>
+        <div class="col-md-3"><input class="form-control" name="t" id="it" placeholder="Họ tên" required></div>
+        <div class="col-md-2"><select class="form-select" name="q" id="iq"><option value="NhanVien">Nhân Viên</option><option value="Admin">Admin</option></select></div>
+        <div class="col-md-1 d-grid"><button class="btn btn-success" type="submit">Lưu</button></div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-dark"><tr><th>Tài khoản</th>{% if quyen == 'Admin' %}<th>Mật khẩu</th>{% endif %}<th>Họ tên</th><th>Quyền</th>{% if quyen == 'Admin' %}<th style="width:150px">Thao tác</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for n in nhan_vien %}
+          <tr>
+            <td>{{n[0]}}</td>
+            {% if quyen == 'Admin' %}<td>{{n[1]}}</td>{% endif %}
+            <td>{{n[2]}}</td>
+            <td>{{n[3]}}</td>
+            {% if quyen == 'Admin' %}
+            <td>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-warning" onclick="eNV('{{n[0]}}','{{n[1]}}','{{n[2]}}','{{n[3]}}')">Sửa</button>
+                {% if n[0] != 'admin' %}
+                <a class="btn btn-sm btn-danger" href="/xoa-nv/{{n[0]}}" onclick="return confirm('Xóa?')">Xóa</a>
+                {% endif %}
+              </div>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function eNV(u, p, t, q) {
+    document.getElementById('ue').value = u;
+    document.getElementById('iu').value = u; document.getElementById('iu').readOnly = true;
+    document.getElementById('ip').value = p;
+    document.getElementById('it').value = t;
+    document.getElementById('iq').value = q;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function clearForm(){
+    document.getElementById('ue').value = '';
+    document.getElementById('iu').value = '';
+    document.getElementById('iu').readOnly = false;
+    document.getElementById('ip').value = '';
+    document.getElementById('it').value = '';
+    document.getElementById('iq').value = 'NhanVien';
+    document.getElementById('iu').focus();
+  }
+  // ensure "Tạo mới" button exists only for Admin (rendered server-side)
+  document.addEventListener('DOMContentLoaded', function(){ var b = document.getElementById('newBtn'); if(b) b.addEventListener('click', clearForm); });
+  // make sidebar link highlight like POS page
+  document.addEventListener('DOMContentLoaded', function(){
+    try{
+      var links = document.querySelectorAll('.nav-link');
+      links.forEach(function(a){ if(a.getAttribute('href') === '/nhan-vien'){ a.classList.add('active'); a.classList.add('text-white'); } });
+    }catch(e){}
+  });
+</script>
+{% endblock %}

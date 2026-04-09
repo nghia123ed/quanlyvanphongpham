@@ -1,0 +1,75 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Lịch sử hóa đơn{% endblock %}
+
+{% block extra_css %}
+<style>
+  .main-content{padding:20px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:12px;border-bottom:1px solid #eef2f7}
+  .btn-detail{background:#17a2b8;color:white;border:none;padding:6px 10px;border-radius:6px}
+  .detail-box{margin-top:20px;background:white;padding:20px;border:2px solid #007bff;border-radius:10px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container main-content">
+    <h2 class="mb-3">Lịch sử hóa đơn</h2>
+    <table class="table table-hover">
+        <thead class="table-dark"><tr><th>Mã HD</th><th>Người bán</th><th>Ngày</th><th>Tổng tiền</th><th>Thao tác</th></tr></thead>
+        <tbody>
+            {% for h in hoa_don %}
+            <tr data-id="{{h[0]}}" data-created="{{h[2]}}">
+                <td>{{h[0]}}</td>
+                <td>{{h[1]}}</td>
+                <td>{{h[2]}}</td>
+                <td>{{h[3]}}đ</td>
+                <td><button class="btn-detail" onclick="showDetail(this)">Xem chi tiết</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div id="detail-box" class="detail-box" style="display:none">
+        <h3 id="detail-title"></h3>
+        <table id="detail-table" class="table">
+            <thead><tr class="table-secondary"><th>Tên SP</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+            <tbody id="detail-body"></tbody>
+        </table>
+        <h3 id="detail-total" style="text-align:right; color:red"></h3>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showDetail(btn) {
+        var tr = btn.closest('tr');
+        var ma = tr.dataset.id;
+        var created = tr.dataset.created || '';
+        fetch('/api/chi-tiet/' + ma).then(res => res.json()).then(data => {
+            document.getElementById('detail-box').style.display = 'block';
+            document.getElementById('detail-title').innerText = 'Chi tiết hóa đơn: ' + ma + (created? (' — ' + created) : '');
+            let h = '', total = 0;
+            data.forEach(item => {
+                h += `<tr><td>${item.name}</td><td>${item.qty}</td><td>${item.price}đ</td><td>${item.qty * item.price}đ</td></tr>`;
+                total += item.qty * item.price;
+            });
+            document.getElementById('detail-body').innerHTML = h;
+            document.getElementById('detail-total').innerText = 'Tổng cộng: ' + total + 'đ';
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+    }
+
+    (function(){
+        try{
+            var params = new URLSearchParams(window.location.search);
+            var inv = params.get('invoice');
+            if(inv){
+                var row = document.querySelector('tr[data-id="'+inv+'"]');
+                if(row){ row.style.background = '#fff3cd'; row.scrollIntoView({behavior:'smooth', block:'center'}); var btn = row.querySelector('button'); if(btn) setTimeout(function(){ btn.click(); }, 300); }
+            }
+        }catch(e){ }
+    })();
+</script>
+{% endblock %}

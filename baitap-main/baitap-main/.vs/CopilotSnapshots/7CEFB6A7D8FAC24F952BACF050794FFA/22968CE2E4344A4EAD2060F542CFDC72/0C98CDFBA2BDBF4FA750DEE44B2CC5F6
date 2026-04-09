@@ -1,0 +1,66 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Quản lý nhân viên{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Quản lý nhân viên</h2>
+  {% if quyen == 'Admin' %}<span class="badge bg-primary">Quản trị</span>{% endif %}
+</div>
+
+{% if quyen == 'Admin' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="POST" class="row g-2 align-items-center">
+        <input type="hidden" name="user_edit" id="ue">
+        <div class="col-md-3"><input class="form-control" name="u" id="iu" placeholder="Tài khoản" required></div>
+        <div class="col-md-3"><input class="form-control" name="p" id="ip" placeholder="Mật khẩu" required></div>
+        <div class="col-md-3"><input class="form-control" name="t" id="it" placeholder="Họ tên" required></div>
+        <div class="col-md-2"><select class="form-select" name="q" id="iq"><option value="NhanVien">Nhân Viên</option><option value="Admin">Admin</option></select></div>
+        <div class="col-md-1"><button class="btn btn-success w-100" type="submit">Lưu</button></div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-dark"><tr><th>Tài khoản</th>{% if quyen == 'Admin' %}<th>Mật khẩu</th>{% endif %}<th>Họ tên</th><th>Quyền</th>{% if quyen == 'Admin' %}<th>Thao tác</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for n in nhan_vien %}
+          <tr>
+            <td>{{n[0]}}</td>
+            {% if quyen == 'Admin' %}<td>{{n[1]}}</td>{% endif %}
+            <td>{{n[2]}}</td>
+            <td>{{n[3]}}</td>
+            {% if quyen == 'Admin' %}
+            <td>
+              <button class="btn btn-sm btn-warning" onclick="eNV('{{n[0]}}','{{n[1]}}','{{n[2]}}','{{n[3]}}')">Sửa</button>
+              {% if n[0] != 'admin' %}
+              <a class="btn btn-sm btn-danger" href="/xoa-nv/{{n[0]}}" onclick="return confirm('Xóa?')">Xóa</a>
+              {% endif %}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function eNV(u, p, t, q) {
+    document.getElementById('ue').value = u;
+    document.getElementById('iu').value = u; document.getElementById('iu').readOnly = true;
+    document.getElementById('ip').value = p;
+    document.getElementById('it').value = t;
+    document.getElementById('iq').value = q;
+  }
+</script>
+{% endblock %}
