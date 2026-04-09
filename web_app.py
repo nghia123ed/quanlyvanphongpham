@@ -1,4 +1,4 @@
-﻿from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 import pyodbc
 from datetime import datetime
 import os
@@ -85,6 +85,19 @@ def internal_error(error):
 def index():
     return redirect(url_for('login'))
 
+@app.route('/xoa-sp/<int:ma_sp>')
+def xoa_sp(ma_sp):
+    if session.get('quyen') != 'Admin':
+        return redirect(url_for('kho_hang'))
+    
+    try:
+        # Dùng đúng bảng Products và cột ID (theo code kho_hang của bạn)
+        db_execute("DELETE FROM SanPham WHERE ID = ?", (ma_sp,), commit=True)
+        return redirect(url_for('kho_hang'))
+        
+    except Exception as e:
+        logger.exception("Lỗi khi xóa sản phẩm")
+        return f"Lỗi khi xóa sản phẩm: {str(e)}", 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -100,7 +113,7 @@ def login():
             conn = get_db()
             cursor = conn.cursor()
             try:
-                cursor.execute('SELECT FullName, Role FROM Users WHERE Username=? AND Password=?', (u, p))
+                cursor.execute('SELECT HoTen, VaiTro FROM NguoiDung WHERE TenDangNhap=? AND MatKhau=?', (u, p))
                 user = cursor.fetchone()
                 if user:
                     session['ten_nv'] = user[0]
@@ -135,11 +148,11 @@ def quen_mat_khau():
         conn = get_db()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT * FROM Users WHERE Username=? AND FullName=?', (u, f))
+        cursor.execute('SELECT * FROM NguoiDung WHERE TenDangNhap=? AND HoTen=?', (u, f))
         user = cursor.fetchone()
         
         if user:
-            cursor.execute('UPDATE Users SET Password=? WHERE Username=?', (new_p, u))
+            cursor.execute('UPDATE NguoiDung SET MatKhau=? WHERE TenDangNhap=?', (new_p, u))
             thong_bao = "Cập nhật mật khẩu thành công! Vui lòng đăng nhập lại."
             loai_thong_bao = "success"
         else:
@@ -151,7 +164,7 @@ def quen_mat_khau():
 def pos():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT ID, ProductName, Price, Stock FROM Products')
+    cursor.execute('SELECT ID, TenSanPham, Gia, SoLuong FROM SanPham')
     sp = cursor.fetchall()
     return render_template('pos.html', san_pham=sp, ten_nv=session['ten_nv'], quyen=session['quyen'])
 
@@ -174,8 +187,19 @@ def thanh_toan():
         tong = sum((item.get('price', 0) or 0) * (item.get('quantity', 0) or 0) for item in data)
 
         # 1. Tạo hóa đơn (lưu cả ngày và thời gian)
-        cursor.execute('INSERT INTO Invoices (InvoiceID, Seller, CreatedDate, TotalAmount) VALUES (?,?,?,?)', 
-                       (ma_hd, session.get('ten_nv'), created_str, tong))
+        # include customer name if provided
+        customer = payload.get('customer') if isinstance(payload, dict) else None
+        if customer:
+            try:
+                cursor.execute('INSERT INTO HoaDon (MaHoaDon, NguoiBan, NgayTao, TongTien, KhachHang) VALUES (?,?,?,?,?)', 
+                               (ma_hd, session.get('ten_nv'), created_str, tong, customer))
+            except Exception:
+                # fallback to original schema without Customer column
+                cursor.execute('INSERT INTO HoaDon (MaHoaDon, NguoiBan, NgayTao, TongTien) VALUES (?,?,?,?)', 
+                               (ma_hd, session.get('ten_nv'), created_str, tong))
+        else:
+            cursor.execute('INSERT INTO HoaDon (MaHoaDon, NguoiBan, NgayTao, TongTien) VALUES (?,?,?,?)', 
+                           (ma_hd, session.get('ten_nv'), created_str, tong))
 
         # 2. Trừ tồn kho và thêm chi tiết hóa đơn
         for item in data:
@@ -183,8 +207,8 @@ def thanh_toan():
             qty = item.get('quantity', 0) or 0
             name = item.get('name')
             price = item.get('price', 0) or 0
-            cursor.execute('UPDATE Products SET Stock = Stock - ? WHERE ProductName = ?', (qty, name))
-            cursor.execute('INSERT INTO InvoiceDetails (InvoiceID, ProductName, Quantity, UnitPrice) VALUES (?,?,?,?)', 
+            cursor.execute('UPDATE SanPham SET SoLuong = SoLuong - ? WHERE TenSanPham = ?', (qty, name))
+            cursor.execute('INSERT INTO ChiTietHoaDon (MaHoaDon, TenSanPham, SoLuong, DonGia) VALUES (?,?,?,?)', 
                            (ma_hd, name, qty, price))
 
         # Lưu tất cả thay đổi vào DB nếu không có lỗi
@@ -224,22 +248,22 @@ def kho_hang():
         if ma:
             # Try to update ImageURL column if it exists; fall back to previous schema
             try:
-                db_execute('UPDATE Products SET ProductName=?, Price=?, Stock=?, ImageURL=? WHERE ID=?', (ten, gia, ton, hinh, ma), commit=True)
+                db_execute('UPDATE SanPham SET TenSanPham=?, Gia=?, SoLuong=?, ImageURL=? WHERE ID=?', (ten, gia, ton, hinh, ma), commit=True)
             except Exception:
-                db_execute('UPDATE Products SET ProductName=?, Price=?, Stock=? WHERE ID=?', (ten, gia, ton, ma), commit=True)
+                db_execute('UPDATE SanPham SET TenSanPham=?, Gia=?, SoLuong=? WHERE ID=?', (ten, gia, ton, ma), commit=True)
         else:
             try:
-                db_execute('INSERT INTO Products (ProductName, Price, Stock, ImageURL) VALUES (?,?,?,?)', (ten, gia, ton, hinh), commit=True)
+                db_execute('INSERT INTO SanPham (TenSanPham, Gia, SoLuong, ImageURL) VALUES (?,?,?,?)', (ten, gia, ton, hinh), commit=True)
             except Exception:
-                db_execute('INSERT INTO Products (ProductName, Price, Stock) VALUES (?,?,?)', (ten, gia, ton), commit=True)
+                db_execute('INSERT INTO SanPham (TenSanPham, Gia, SoLuong) VALUES (?,?,?)', (ten, gia, ton), commit=True)
 
         return redirect(url_for('kho_hang'))
 
     # Try to read ImageURL if present in DB; fall back to older schema without ImageURL
     try:
-        sp = db_query('SELECT ID, ProductName, Price, Stock, ImageURL FROM Products')
+        sp = db_query('SELECT ID, TenSanPham, Gia, SoLuong, ImageURL FROM SanPham')
     except Exception:
-        sp = db_query('SELECT ID, ProductName, Price, Stock FROM Products')
+        sp = db_query('SELECT ID, TenSanPham, Gia, SoLuong FROM SanPham')
 
     return render_template('kho_hang.html', san_pham=sp, ten_nv=session['ten_nv'], quyen=session['quyen'])
 
@@ -255,44 +279,72 @@ def nhan_vien():
         edit_u = request.form.get('user_edit')
         
         if edit_u:
-            cursor.execute('UPDATE Users SET Password=?, FullName=?, Role=? WHERE Username=?', (p, t, q, edit_u))
+            cursor.execute('UPDATE NguoiDung SET MatKhau=?, HoTen=?, VaiTro=? WHERE TenDangNhap=?', (p, t, q, edit_u))
         else:
-            cursor.execute('INSERT INTO Users VALUES (?,?,?,?)', (u, p, t, q))
+            cursor.execute('INSERT INTO NguoiDung VALUES (?,?,?,?)', (u, p, t, q))
         return redirect(url_for('nhan_vien'))
         
-    cursor.execute('SELECT Username, Password, FullName, Role FROM Users')
+    cursor.execute('SELECT TenDangNhap, MatKhau, HoTen, VaiTro FROM NguoiDung')
     list_nv = cursor.fetchall()
     return render_template('nhan_vien.html', nhan_vien=list_nv, ten_nv=session['ten_nv'], quyen=session['quyen'])
 
 @app.route('/xoa-nv/<user>')
 def xoa_nv(user):
     if session.get('quyen') == 'Admin' and user != 'admin':
-        get_db().cursor().execute('DELETE FROM Users WHERE Username=?', (user,))
+        get_db().cursor().execute('DELETE FROM NguoiDung WHERE TenDangNhap=?', (user,))
     return redirect(url_for('nhan_vien'))
 
 @app.route('/lich-su')
 def lich_su():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT InvoiceID, Seller, CreatedDate, TotalAmount FROM Invoices ORDER BY InvoiceID DESC')
-    hd = cursor.fetchall()
+    # Try to include Customer column if available
+    try:
+        cursor.execute('SELECT MaHoaDon, NguoiBan, NgayTao, TongTien, KhachHang FROM HoaDon ORDER BY MaHoaDon DESC')
+        hd = cursor.fetchall()
+    except Exception:
+        cursor.execute('SELECT MaHoaDon, NguoiBan, NgayTao, TongTien FROM HoaDon ORDER BY MaHoaDon DESC')
+        hd = cursor.fetchall()
     return render_template('lich_su.html', hoa_don=hd, ten_nv=session['ten_nv'], quyen=session['quyen'])
 
 @app.route('/api/chi-tiet/<ma_hd>')
 def chi_tiet(ma_hd):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT ProductName, Quantity, UnitPrice FROM InvoiceDetails WHERE InvoiceID=?', (ma_hd,))
+    cursor.execute('SELECT TenSanPham, SoLuong, DonGia FROM ChiTietHoaDon WHERE MaHoaDon=?', (ma_hd,))
     rows = cursor.fetchall()
     return jsonify([{"name": r[0], "qty": r[1], "price": r[2]} for r in rows])
 
 @app.route('/thong-ke')
 def thong_ke():
+    # Render UI — data will be requested via AJAX to allow filtering and export
+    return render_template('thong_ke.html', ten_nv=session['ten_nv'], quyen=session['quyen'])
+
+
+@app.route('/api/thong-ke')
+def api_thong_ke():
+    # Returns JSON with labels and values for chart and a rows list for table
+    start = request.args.get('start')
+    end = request.args.get('end') 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT CreatedDate, SUM(TotalAmount) FROM Invoices GROUP BY CreatedDate')
-    data = cursor.fetchall()
-    return render_template('thong_ke.html', labels=[r[0] for r in data], values=[r[1] for r in data], ten_nv=session['ten_nv'], quyen=session['quyen'])
+    # Build base SQL. CreatedDate stored as string/datetime; use CONVERT(date, CreatedDate) for grouping
+    sql = 'SELECT CONVERT(date, NgayTao) AS d, SUM(TongTien) FROM HoaDon '
+    params = []
+    if start and end:
+        sql += 'WHERE CONVERT(date, NgayTao) BETWEEN ? AND ? '
+        params = [start, end]
+    sql += 'GROUP BY CONVERT(date, NgayTao) ORDER BY CONVERT(date, NgayTao)'
+    try:
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        labels = [r[0].strftime('%Y-%m-%d') if hasattr(r[0], 'strftime') else str(r[0]) for r in rows]
+        values = [float(r[1] or 0) for r in rows]
+        table = [{'date': labels[i], 'total': values[i]} for i in range(len(labels))]
+        return jsonify({'labels': labels, 'values': values, 'rows': table})
+    except Exception as e:
+        logger.exception('Error querying thong-ke')
+        return jsonify({'labels': [], 'values': [], 'rows': []}), 500
 
 @app.route('/logout')
 def logout():
